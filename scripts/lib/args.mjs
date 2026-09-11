@@ -1,5 +1,7 @@
 const YARN_MODES = new Set(["install", "dev", "test", "setup", "open"]);
-const ALL_MODES = new Set([...YARN_MODES, "switch"]);
+const BRANCH_MODES = new Set(["switch", "sync"]);
+const GIT_MODES = new Set([...BRANCH_MODES, "pull"]);
+const ALL_MODES = new Set([...YARN_MODES, ...GIT_MODES]);
 
 /**
  * Extrai --root / --config de uma lista de args (mutando a lista residual).
@@ -52,8 +54,8 @@ export function extractGlobalFlags(rest) {
  * @param {string[]} argv process.argv
  * @returns
  *   | { help: true, mode?: string }
- *   | { mode: 'install'|'dev'|'test'|'setup'|'open', all: boolean, cliRepos: string[], reset: boolean, root: string | null, config: string | null }
- *   | { mode: 'switch', branch: string, all: boolean, cliRepos: string[], root: string | null, config: string | null }
+ *   | { mode: 'install'|'dev'|'test'|'setup'|'open'|'pull', all: boolean, cliRepos: string[], reset: boolean, root: string | null, config: string | null }
+ *   | { mode: 'switch'|'sync', branch: string, all: boolean, cliRepos: string[], root: string | null, config: string | null }
  */
 export function parseArgs(argv) {
   const mode = argv[2];
@@ -65,14 +67,14 @@ export function parseArgs(argv) {
 
   if (!ALL_MODES.has(mode)) {
     throw new Error(
-      `Modo desconhecido: ${mode}. Use install, dev, test, setup, open ou switch.`,
+      `Modo desconhecido: ${mode}. Use install, dev, test, setup, open, switch, sync ou pull.`,
     );
   }
 
   const { root, config, rest } = extractGlobalFlags(rawRest);
 
-  if (mode === "switch") {
-    const parsed = parseSwitchArgs(rest);
+  if (BRANCH_MODES.has(mode)) {
+    const parsed = parseBranchModeArgs(mode, rest);
     if (parsed.help) return parsed;
     return { ...parsed, root, config };
   }
@@ -110,9 +112,10 @@ function parseYarnModeArgs(mode, rest) {
 }
 
 /**
+ * @param {'switch'|'sync'} mode
  * @param {string[]} rest
  */
-function parseSwitchArgs(rest) {
+function parseBranchModeArgs(mode, rest) {
   let branch = null;
   /** @type {string[]} */
   const repos = [];
@@ -146,7 +149,7 @@ function parseSwitchArgs(rest) {
     }
 
     if (arg === "--help" || arg === "-h") {
-      return { help: true, mode: "switch" };
+      return { help: true, mode };
     }
 
     if (arg === "--") {
@@ -170,10 +173,10 @@ function parseSwitchArgs(rest) {
   }
 
   if (!branch) {
-    throw new Error("Informe a branch: yarn switch <branch>");
+    throw new Error(`Informe a branch: yarn ${mode} <branch>`);
   }
 
-  return { mode: "switch", branch, all, cliRepos: repos };
+  return { mode, branch, all, cliRepos: repos };
 }
 
 export function printHelp() {
@@ -189,6 +192,12 @@ export function printHelp() {
   yarn switch <branch>      → troca de branch nos clones git
   yarn switch <branch> -- --all
   yarn switch <branch> -- core api
+  yarn sync <branch>        → switch + fetch + pull --ff-only
+  yarn sync <branch> -- --all
+  yarn sync <branch> -- core nexus
+  yarn pull                 → git fetch + pull --ff-only (branch atual)
+  yarn pull -- --all
+  yarn pull -- core nexus
 
 Flags comuns: --all, nomes após --, REPOS_SKIP_PROMPT=1
   --reset                   → (open) zera a lista e remove os markers
@@ -196,5 +205,7 @@ Flags comuns: --all, nomes após --, REPOS_SKIP_PROMPT=1
   --config <file>           → repos.config.json já resolvido
   REPOS_ROOT=<path>         → alternativa a --root
 
-switch: working tree sujo pula o repo; sem fetch/pull/force/stash.`);
+switch: working tree sujo pula o repo; sem fetch/pull/force/stash.
+sync: working tree sujo pula o repo; fetch + switch + pull --ff-only.
+pull: working tree sujo ou detached HEAD pula o repo; só --ff-only.`);
 }

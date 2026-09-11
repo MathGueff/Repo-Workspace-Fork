@@ -16,11 +16,15 @@
     "setup": "node scripts/repo-workspace.mjs setup",
     "open": "node scripts/repo-workspace.mjs open",
     "switch": "node scripts/repo-workspace.mjs switch",
+    "sync": "node scripts/repo-workspace.mjs sync",
+    "pull": "node scripts/repo-workspace.mjs pull",
     "repos:install": "node scripts/repo-workspace.mjs install",
     "repos:dev": "node scripts/repo-workspace.mjs dev",
     "repos:test": "node scripts/repo-workspace.mjs test",
     "repos:setup": "node scripts/repo-workspace.mjs setup",
-    "repos:open": "node scripts/repo-workspace.mjs open"
+    "repos:open": "node scripts/repo-workspace.mjs open",
+    "repos:pull": "node scripts/repo-workspace.mjs pull",
+    "repos:sync": "node scripts/repo-workspace.mjs sync"
   },
   "dependencies": {
     "concurrently": "^9.2.1",

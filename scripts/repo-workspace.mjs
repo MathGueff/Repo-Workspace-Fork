@@ -9,6 +9,8 @@
  *   yarn open [-- api]      → ativa repos no Source Control (substitui a lista)
  *   yarn run open -- --reset          → zera a lista e remove os markers
  *   yarn switch <branch> [-- --all | -- repo1 repo2]
+ *   yarn sync <branch> [-- --all | -- repo1 repo2]
+ *   yarn pull [-- --all | -- repo1 repo2]
  *   REPOS_SKIP_PROMPT=1 yarn dev
  *   --root <path> / REPOS_ROOT / --config <file>  (raiz/config externos)
  *
@@ -25,6 +27,8 @@ import {
   checkoutRepos,
   currentBranchName,
   discoverGitRepos,
+  pullRepos,
+  syncRepos,
 } from "./lib/git.mjs";
 import { resolveRoot } from "./lib/root.mjs";
 import {
@@ -242,6 +246,65 @@ async function runSwitch(parsed, config, root) {
   process.exit(result.exitCode);
 }
 
+async function runSync(parsed, config, root) {
+  const discovered = discoverGitRepos(root, config.ignore);
+
+  if (discovered.length === 0) {
+    console.error("Nenhum repositório git encontrado na raiz.");
+    process.exit(1);
+  }
+
+  const selected = await resolveSelection({
+    discovered,
+    all: parsed.all,
+    cliRepos: parsed.cliRepos,
+    mode: "sync",
+    message: `Quais repositórios sync (switch+pull) para ${parsed.branch}?`,
+    titleFor: (name) => {
+      const current = currentBranchName(path.join(root, name));
+      return `${name}  (${current})`;
+    },
+  });
+
+  if (selected === null) return;
+
+  const result = syncRepos({
+    branch: parsed.branch,
+    repos: selected,
+    reposRoot: root,
+  });
+  process.exit(result.exitCode);
+}
+
+async function runPull(parsed, config, root) {
+  const discovered = discoverGitRepos(root, config.ignore);
+
+  if (discovered.length === 0) {
+    console.error("Nenhum repositório git encontrado na raiz.");
+    process.exit(1);
+  }
+
+  const selected = await resolveSelection({
+    discovered,
+    all: parsed.all,
+    cliRepos: parsed.cliRepos,
+    mode: "pull",
+    message: "Quais repositórios atualizar (git pull --ff-only)?",
+    titleFor: (name) => {
+      const current = currentBranchName(path.join(root, name));
+      return `${name}  (${current})`;
+    },
+  });
+
+  if (selected === null) return;
+
+  const result = pullRepos({
+    repos: selected,
+    reposRoot: root,
+  });
+  process.exit(result.exitCode);
+}
+
 async function main() {
   let parsed;
   try {
@@ -280,6 +343,12 @@ async function main() {
       break;
     case "switch":
       await runSwitch(parsed, config, root);
+      break;
+    case "sync":
+      await runSync(parsed, config, root);
+      break;
+    case "pull":
+      await runPull(parsed, config, root);
       break;
     default:
       printHelp();
