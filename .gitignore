@@ -7,3 +7,11 @@ yarn-error.log
 .env
 .env.*.local
 .superpowers/
+
+core
+auto-x-web
+uxvision-web
+mailer-server
+indiky-shorten
+indiky-server
+docs
