@@ -1,8 +1,10 @@
 {
   "ignore": ["node_modules", ".git"],
   "nodeVersionByRepo": {
-    "repo-example": "22.12.0",
-    "repo-example-2": "24.14.1"
+    "core": "20.19.5",
+    "mailer-server": "20.19.5",
+    "uxvision-web": "22.12.0",
+    "auto-x-web": "22.12.0"
   },
   "testCommandByRepo": {}
 }
