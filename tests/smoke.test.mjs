@@ -24,6 +24,8 @@ describe("smoke CLI", () => {
     assert.match(r.stdout, /yarn setup/);
     assert.match(r.stdout, /yarn open/);
     assert.match(r.stdout, /yarn switch/);
+    assert.match(r.stdout, /yarn sync/);
+    assert.match(r.stdout, /yarn pull/);
     assert.match(r.stdout, /yarn test/);
     assert.doesNotMatch(r.stdout, /yarn tsc/);
   });
@@ -38,6 +40,18 @@ describe("smoke CLI", () => {
     const r = run(["switch"]);
     assert.notEqual(r.status, 0);
     assert.match(r.stderr, /Informe a branch/);
+  });
+
+  it("sync sem branch falha", () => {
+    const r = run(["sync"]);
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /Informe a branch/);
+  });
+
+  it("pull com repo inexistente falha", () => {
+    const r = run(["pull", "--", "__nao_existe__"]);
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /Pastas desconhecidas|Nenhum repositório/);
   });
 
   it("repo inexistente em install falha sem instalar", () => {

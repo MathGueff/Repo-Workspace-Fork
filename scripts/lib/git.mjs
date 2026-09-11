@@ -156,3 +156,184 @@ export function checkoutRepos({ branch, repos, reposRoot = ROOT }) {
     exitCode: errorCount + skippedCount > 0 ? 1 : 0,
   };
 }
+
+/**
+ * `git fetch` + `git pull --ff-only` na branch atual de cada clone.
+ * Working tree sujo ou detached HEAD → pulado (sem stash/merge/force).
+ *
+ * @param {{ repos: string[], reposRoot?: string }} options
+ * @returns {{ okCount: number, errorCount: number, skippedCount: number, exitCode: number }}
+ */
+export function pullRepos({ repos, reposRoot = ROOT }) {
+  let okCount = 0;
+  let errorCount = 0;
+  let skippedCount = 0;
+
+  for (const name of repos) {
+    const repoPath = join(reposRoot, name);
+    const prefix = `[${name}]`;
+
+    if (!existsSync(repoPath)) {
+      console.log(`${prefix} erro: pasta não encontrada (${repoPath})`);
+      errorCount++;
+      continue;
+    }
+
+    if (!isGitRepo(repoPath)) {
+      console.log(`${prefix} erro: não é um repositório git`);
+      errorCount++;
+      continue;
+    }
+
+    const status = runGit(repoPath, ["status", "--porcelain"]);
+    if (status.exitCode !== 0) {
+      console.log(`${prefix} erro: falha ao ler status (${status.text})`);
+      errorCount++;
+      continue;
+    }
+    if (status.text !== "") {
+      console.log(`${prefix} pulado: working tree sujo`);
+      skippedCount++;
+      continue;
+    }
+
+    const branch = currentBranchName(repoPath);
+    if (!branch || branch === "(detached)") {
+      console.log(`${prefix} pulado: HEAD detached`);
+      skippedCount++;
+      continue;
+    }
+
+    const fetchResult = runGit(repoPath, ["fetch", "origin"]);
+    if (fetchResult.exitCode !== 0) {
+      const reason = fetchResult.text || `exit ${fetchResult.exitCode}`;
+      console.log(`${prefix} erro: falha no fetch (${reason})`);
+      errorCount++;
+      continue;
+    }
+
+    const pullResult = runGit(repoPath, ["pull", "--ff-only"]);
+    if (pullResult.exitCode !== 0) {
+      const reason = pullResult.text || `exit ${pullResult.exitCode}`;
+      console.log(`${prefix} erro: falha no pull --ff-only (${reason})`);
+      errorCount++;
+      continue;
+    }
+
+    const detail = pullResult.text || "Already up to date.";
+    console.log(`${prefix} ok: ${branch} — ${detail.split("\n")[0]}`);
+    okCount++;
+  }
+
+  console.log("");
+  console.log(`Resumo: ${okCount} ok, ${errorCount} erro, ${skippedCount} pulado`);
+
+  return {
+    okCount,
+    errorCount,
+    skippedCount,
+    exitCode: errorCount + skippedCount > 0 ? 1 : 0,
+  };
+}
+
+/**
+ * Fetch + switch para `branch` + pull --ff-only (um passo por repo).
+ * Working tree sujo → pulado (sem stash/merge/force).
+ *
+ * @param {{ branch: string, repos: string[], reposRoot?: string }} options
+ * @returns {{ okCount: number, errorCount: number, skippedCount: number, exitCode: number }}
+ */
+export function syncRepos({ branch, repos, reposRoot = ROOT }) {
+  let okCount = 0;
+  let errorCount = 0;
+  let skippedCount = 0;
+
+  for (const name of repos) {
+    const repoPath = join(reposRoot, name);
+    const prefix = `[${name}]`;
+
+    if (!existsSync(repoPath)) {
+      console.log(`${prefix} erro: pasta não encontrada (${repoPath})`);
+      errorCount++;
+      continue;
+    }
+
+    if (!isGitRepo(repoPath)) {
+      console.log(`${prefix} erro: não é um repositório git`);
+      errorCount++;
+      continue;
+    }
+
+    const status = runGit(repoPath, ["status", "--porcelain"]);
+    if (status.exitCode !== 0) {
+      console.log(`${prefix} erro: falha ao ler status (${status.text})`);
+      errorCount++;
+      continue;
+    }
+    if (status.text !== "") {
+      console.log(`${prefix} pulado: working tree sujo`);
+      skippedCount++;
+      continue;
+    }
+
+    const fromBranch = currentBranchName(repoPath);
+
+    const fetchResult = runGit(repoPath, ["fetch", "origin"]);
+    if (fetchResult.exitCode !== 0) {
+      const reason = fetchResult.text || `exit ${fetchResult.exitCode}`;
+      console.log(`${prefix} erro: falha no fetch (${reason})`);
+      errorCount++;
+      continue;
+    }
+
+    if (fromBranch !== branch) {
+      let switchResult;
+      if (localBranchExists(repoPath, branch)) {
+        switchResult = runGit(repoPath, ["switch", branch]);
+      } else if (remoteBranchExists(repoPath, branch)) {
+        switchResult = runGit(repoPath, [
+          "switch",
+          "--track",
+          `origin/${branch}`,
+        ]);
+      } else {
+        console.log(
+          `${prefix} erro: branch '${branch}' não encontrada (local nem origin/${branch})`,
+        );
+        errorCount++;
+        continue;
+      }
+
+      if (switchResult.exitCode !== 0) {
+        const reason = switchResult.text || `exit ${switchResult.exitCode}`;
+        console.log(`${prefix} erro: falha no switch (${reason})`);
+        errorCount++;
+        continue;
+      }
+    }
+
+    const pullResult = runGit(repoPath, ["pull", "--ff-only"]);
+    if (pullResult.exitCode !== 0) {
+      const reason = pullResult.text || `exit ${pullResult.exitCode}`;
+      console.log(`${prefix} erro: falha no pull --ff-only (${reason})`);
+      errorCount++;
+      continue;
+    }
+
+    const detail = pullResult.text || "Already up to date.";
+    const switchPart =
+      fromBranch === branch ? `já em ${branch}` : `${fromBranch} -> ${branch}`;
+    console.log(`${prefix} ok: ${switchPart} — ${detail.split("\n")[0]}`);
+    okCount++;
+  }
+
+  console.log("");
+  console.log(`Resumo: ${okCount} ok, ${errorCount} erro, ${skippedCount} pulado`);
+
+  return {
+    okCount,
+    errorCount,
+    skippedCount,
+    exitCode: errorCount + skippedCount > 0 ? 1 : 0,
+  };
+}

@@ -44,11 +44,48 @@ describe("parseArgs", () => {
     );
   });
 
+  it("parseia pull com --all e repos", () => {
+    const parsed = parseArgs([
+      "node",
+      "x",
+      "pull",
+      "--all",
+      "--",
+      "core",
+      "nexus",
+    ]);
+    assert.equal(parsed.mode, "pull");
+    assert.equal(parsed.all, true);
+    assert.deepEqual(parsed.cliRepos, ["core", "nexus"]);
+  });
+
   it("exige branch em switch", () => {
     assert.throws(
       () => parseArgs(["node", "x", "switch"]),
       /Informe a branch/,
     );
+  });
+
+  it("exige branch em sync", () => {
+    assert.throws(
+      () => parseArgs(["node", "x", "sync"]),
+      /Informe a branch/,
+    );
+  });
+
+  it("parseia sync com branch e repos", () => {
+    const parsed = parseArgs([
+      "node",
+      "x",
+      "sync",
+      "main",
+      "--",
+      "core",
+      "nexus",
+    ]);
+    assert.equal(parsed.mode, "sync");
+    assert.equal(parsed.branch, "main");
+    assert.deepEqual(parsed.cliRepos, ["core", "nexus"]);
   });
 
   it("parseia switch com branch, --all e repos", () => {
